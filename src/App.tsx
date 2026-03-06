@@ -25,7 +25,9 @@ import {
   AlertCircle,
   ChevronDown,
   Edit2,
-  Camera
+  Camera,
+  LogOut,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -43,6 +45,8 @@ import {
   MOCK_ORGANIZATIONS, 
   MOCK_CONVERSATIONS
 } from './mockData';
+import { useAuth } from './contexts/AuthContext';
+import Login from './components/Login';
 
 type View = 'support' | 'organizations' | 'agents';
 
@@ -54,13 +58,18 @@ export default function App() {
   const [userPresence, setUserPresence] = useState<UserPresence>(UserPresence.AVAILABLE);
   const [showPresenceMenu, setShowPresenceMenu] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [currentUser, setCurrentUser] = useState<UserType>({
-    id: '1',
-    name: 'João',
-    email: 'joao@support.com',
-    avatar: 'https://i.pravatar.cc/150?u=joao_agent'
-  });
   
+  const { user, loading, logout } = useAuth();
+  
+  const currentUser: UserType = user ? {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`
+  } : {
+    id: '1', name: 'Usuário', email: '', avatar: ''
+  };
+
   // State for data
   const [agents, setAgents] = useState<Agent[]>(MOCK_AGENTS);
   const [organizations, setOrganizations] = useState<Organization[]>(MOCK_ORGANIZATIONS);
@@ -191,6 +200,18 @@ export default function App() {
     [UserPresence.OFFLINE]: 'Offline',
   };
 
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-brand-dark">
+        <Loader2 className="animate-spin text-brand-accent" size={40} />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
   return (
     <div className="flex h-screen bg-white font-sans overflow-hidden">
       {/* Sidebar */}
@@ -313,6 +334,15 @@ export default function App() {
                       <span className="text-xs text-white">{presenceLabels[presence]}</span>
                     </button>
                   ))}
+                  <button
+                    onClick={() => {
+                      logout();
+                    }}
+                    className="w-full flex items-center gap-3 p-3 hover:bg-red-500/20 border-t border-white/5 transition-colors text-left cursor-pointer mt-1"
+                  >
+                    <LogOut size={14} className="text-red-400" />
+                    <span className="text-xs text-red-400 font-bold">Sair do Sistema</span>
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -326,7 +356,8 @@ export default function App() {
           <ProfileModal 
             user={currentUser} 
             onSave={(updatedUser: UserType) => {
-              setCurrentUser(updatedUser);
+              // This should ideally send a request to the backend to update the user profile
+              // For now, we just close the modal since currentUser is derived from AuthContext
               setShowProfileModal(false);
             }}
             onClose={() => setShowProfileModal(false)}
