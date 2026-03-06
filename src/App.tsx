@@ -215,6 +215,15 @@ export default function App() {
     );
   }
 
+  if (currentUser.is_first_login && currentUser.role === 'agent') {
+    return (
+      <ChangePasswordView 
+        user={currentUser} 
+        onSuccess={() => setCurrentUser({...currentUser, is_first_login: false})} 
+      />
+    );
+  }
+
   return (
     <div className="flex h-screen bg-white font-sans overflow-hidden">
       {/* Sidebar */}
@@ -274,13 +283,15 @@ export default function App() {
             onClick={() => setCurrentView('organizations')}
             collapsed={!isSidebarOpen}
           />
-          <NavItem 
-            icon={<Users size={20} />} 
-            label="Agentes" 
-            active={currentView === 'agents'} 
-            onClick={() => setCurrentView('agents')}
-            collapsed={!isSidebarOpen}
-          />
+          {currentUser.role === 'admin' && (
+            <NavItem 
+              icon={<Users size={20} />} 
+              label="Agentes" 
+              active={currentView === 'agents'} 
+              onClick={() => setCurrentView('agents')}
+              collapsed={!isSidebarOpen}
+            />
+          )}
         </nav>
 
         <div className="p-4 border-t border-white/10 shrink-0">
@@ -452,6 +463,76 @@ export default function App() {
 }
 
 // --- Sub-components ---
+
+function ChangePasswordView({ user, onSuccess }: { user: UserType, onSuccess: () => void }) {
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      setError('As senhas não coincidem.');
+      return;
+    }
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id, password }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        onSuccess();
+      } else {
+        setError(data.message || 'Erro ao alterar a senha.');
+      }
+    } catch (err) {
+      setError('Erro ao conectar com o servidor.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen dark-gradient flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white w-full max-w-md rounded-[2.5rem] p-10 shadow-2xl">
+        <div className="text-center mb-10">
+          <h1 className="text-2xl font-bold text-brand-dark mb-2">Primeiro Acesso</h1>
+          <p className="text-brand-gray text-sm">Por segurança, você precisa alterar sua senha inicial para continuar.</p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-xs font-bold uppercase text-brand-gray mb-2 ml-1">Nova Senha</label>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Sua nova senha" minLength={5} className="w-full bg-slate-100 border-none rounded-2xl pl-12 pr-4 py-4 text-sm focus:ring-2 focus:ring-brand-dark transition-all" required />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase text-brand-gray mb-2 ml-1">Confirmar Senha</label>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repita a nova senha" minLength={5} className="w-full bg-slate-100 border-none rounded-2xl pl-12 pr-4 py-4 text-sm focus:ring-2 focus:ring-brand-dark transition-all" required />
+            </div>
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 text-red-500 text-xs font-bold bg-red-50 p-4 rounded-xl border border-red-100">
+              <AlertCircle size={16} /> {error}
+            </div>
+          )}
+          <button type="submit" disabled={isLoading} className="w-full bg-brand-dark text-white py-4 rounded-2xl font-bold text-lg hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-70">
+            {isLoading ? 'Salvando...' : 'Salvar Senha'}
+          </button>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
 
 const NotificationToggle = ({ label, value, onToggle }: { label: string, value: boolean, onToggle: (val: boolean) => void }) => (
   <div className="flex items-center justify-between gap-4 py-1">
@@ -1208,25 +1289,82 @@ function OrganizationsView({ organizations, setOrganizations, onToggleActive, on
 
 function AgentsView({ agents, setAgents, onToggleActive, onDelete }: any) {
   const [isAdding, setIsAdding] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newEmail, setNewEmail] = useState('');
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole] = useState<'admin' | 'agent'>('agent');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleAdd = () => {
-    if (!newName || !newEmail) return;
-    const newAgent: Agent = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: newName,
-      email: newEmail,
-      avatar: `https://i.pravatar.cc/150?u=${newName}`,
-      active: true,
-      notifications: { newCall: true, closedCall: true, assignedToMe: true, participations: true }
-    };
-    setAgents([...agents, newAgent]);
-    setNewName('');
-    setNewEmail('');
-    setIsAdding(false);
+  // Fetch users on mount
+  React.useEffect(() => {
+    fetch('/api/users')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setAgents(data.users.map((u: any) => ({
+            id: u.id,
+            name: u.username,
+            email: u.username + '@support.com',
+            avatar: `https://i.pravatar.cc/150?u=${u.username}`,
+            active: true,
+            role: u.role
+          })));
+        }
+      });
+  }, [setAgents]);
+
+  const handleAdd = async () => {
+    if (!newUsername || !newPassword) return;
+    setIsLoading(true);
+    setErrorMsg('');
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: newUsername, password: newPassword, role: newRole })
+      });
+      const data = await res.json();
+      if (data.success) {
+        const newAgent = {
+          id: data.id,
+          name: newUsername,
+          email: newUsername + '@support.com',
+          avatar: `https://i.pravatar.cc/150?u=${newUsername}`,
+          active: true,
+          role: newRole
+        };
+        setAgents([...agents, newAgent]);
+        setNewUsername('');
+        setNewPassword('');
+        setNewRole('agent');
+        setIsAdding(false);
+      } else {
+        setErrorMsg(data.message || 'Erro ao criar usuário');
+      }
+    } catch {
+      setErrorMsg('Erro de conexão');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteId) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/users/${deleteId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setAgents(agents.filter((a: any) => a.id !== deleteId));
+        setDeleteId(null);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const filteredAgents = agents.filter((agent: any) => 
@@ -1266,34 +1404,27 @@ function AgentsView({ agents, setAgents, onToggleActive, onDelete }: any) {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white p-6 rounded-3xl border border-brand-accent/30 shadow-lg"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase text-brand-gray mb-1">Nome Completo</label>
-              <input 
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                type="text" 
-                placeholder="Ex: Alice Silva" 
-                className="w-full bg-slate-100 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-dark"
-              />
+              <label className="block text-xs font-bold uppercase text-brand-gray mb-1">Login/Usuário</label>
+              <input value={newUsername} onChange={(e) => setNewUsername(e.target.value)} type="text" placeholder="Ex: jp.agente" className="w-full bg-slate-100 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-dark" />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase text-brand-gray mb-1">E-mail Profissional</label>
-              <input 
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                type="email" 
-                placeholder="Ex: alice@hub.com" 
-                className="w-full bg-slate-100 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-dark"
-              />
+              <label className="block text-xs font-bold uppercase text-brand-gray mb-1">Senha Inicial</label>
+              <input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" placeholder="Senha do usuário" className="w-full bg-slate-100 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-dark" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-brand-gray mb-1">Perfil</label>
+              <select value={newRole} onChange={(e) => setNewRole(e.target.value as 'admin'|'agent')} className="w-full bg-slate-100 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-dark">
+                <option value="agent">Agente</option>
+                <option value="admin">Administrador</option>
+              </select>
             </div>
           </div>
+          {errorMsg && <p className="text-red-500 text-xs mt-2 font-bold">{errorMsg}</p>}
           <div className="mt-6 flex gap-3">
-            <button 
-              onClick={handleAdd}
-              className="bg-brand-accent text-brand-dark px-6 py-2 rounded-lg font-bold hover:opacity-90 cursor-pointer"
-            >
-              Salvar
+            <button onClick={handleAdd} disabled={isLoading} className="bg-brand-accent text-brand-dark px-6 py-2 rounded-lg font-bold hover:opacity-90 cursor-pointer disabled:opacity-50">
+              {isLoading ? 'Salvando...' : 'Salvar'}
             </button>
             <button 
               onClick={() => setIsAdding(false)}
@@ -1386,13 +1517,11 @@ function AgentsView({ agents, setAgents, onToggleActive, onDelete }: any) {
                   Cancelar
                 </button>
                 <button 
-                  onClick={() => {
-                    onDelete(deleteId);
-                    setDeleteId(null);
-                  }}
-                  className="flex-1 py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 transition-colors cursor-pointer"
+                  onClick={handleConfirmDelete}
+                  disabled={isLoading}
+                  className="flex-1 py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 transition-colors cursor-pointer disabled:opacity-50"
                 >
-                  Excluir
+                  {isLoading ? 'Excluindo...' : 'Excluir'}
                 </button>
               </div>
             </motion.div>
