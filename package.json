@@ -4,12 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port=3000 --host=0.0.0.0",
+    "dev": "tsx server.ts",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit",
-    "start:api": "tsx server/index.ts"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -22,10 +21,7 @@
     "express": "^4.21.2",
     "dotenv": "^17.2.3",
     "better-sqlite3": "^12.4.1",
-    "motion": "^12.23.24",
-    "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
-    "cors": "^2.8.5"
+    "motion": "^12.23.24"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
@@ -34,9 +30,6 @@
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
-    "@types/express": "^4.17.21",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/jsonwebtoken": "^9.0.6",
-    "@types/cors": "^2.8.17"
+    "@types/express": "^4.17.21"
   }
 }

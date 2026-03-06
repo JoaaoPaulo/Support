@@ -26,8 +26,7 @@ import {
   ChevronDown,
   Edit2,
   Camera,
-  LogOut,
-  Loader2
+  Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -45,12 +44,11 @@ import {
   MOCK_ORGANIZATIONS, 
   MOCK_CONVERSATIONS
 } from './mockData';
-import { useAuth } from './contexts/AuthContext';
-import Login from './components/Login';
 
 type View = 'support' | 'organizations' | 'agents';
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentView, setCurrentView] = useState<View>('support');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -58,18 +56,14 @@ export default function App() {
   const [userPresence, setUserPresence] = useState<UserPresence>(UserPresence.AVAILABLE);
   const [showPresenceMenu, setShowPresenceMenu] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserType>({
+    id: '1',
+    name: 'João',
+    email: 'joao@support.com',
+    avatar: 'https://i.pravatar.cc/150?u=joao_agent',
+    notifications: { newCall: true, closedCall: true, assignedToMe: true, participations: true }
+  });
   
-  const { user, loading, logout } = useAuth();
-  
-  const currentUser: UserType = user ? {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`
-  } : {
-    id: '1', name: 'Usuário', email: '', avatar: ''
-  };
-
   // State for data
   const [agents, setAgents] = useState<Agent[]>(MOCK_AGENTS);
   const [organizations, setOrganizations] = useState<Organization[]>(MOCK_ORGANIZATIONS);
@@ -98,6 +92,16 @@ export default function App() {
         };
       }
       return conv;
+    }));
+  };
+
+  const handleUpdateCurrentUserNotification = (key: keyof NonNullable<UserType['notifications']>, value: boolean) => {
+    setCurrentUser(prev => ({
+      ...prev,
+      notifications: {
+        ...(prev.notifications || { newCall: true, closedCall: true, assignedToMe: true, participations: true }),
+        [key]: value
+      }
     }));
   };
 
@@ -200,16 +204,15 @@ export default function App() {
     [UserPresence.OFFLINE]: 'Offline',
   };
 
-  if (loading) {
+  if (!isAuthenticated) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-brand-dark">
-        <Loader2 className="animate-spin text-brand-accent" size={40} />
-      </div>
+      <LoginView 
+        onLoginSuccess={(user: UserType) => {
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+        }} 
+      />
     );
-  }
-
-  if (!user) {
-    return <Login />;
   }
 
   return (
@@ -334,15 +337,6 @@ export default function App() {
                       <span className="text-xs text-white">{presenceLabels[presence]}</span>
                     </button>
                   ))}
-                  <button
-                    onClick={() => {
-                      logout();
-                    }}
-                    className="w-full flex items-center gap-3 p-3 hover:bg-red-500/20 border-t border-white/5 transition-colors text-left cursor-pointer mt-1"
-                  >
-                    <LogOut size={14} className="text-red-400" />
-                    <span className="text-xs text-red-400 font-bold">Sair do Sistema</span>
-                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -356,8 +350,7 @@ export default function App() {
           <ProfileModal 
             user={currentUser} 
             onSave={(updatedUser: UserType) => {
-              // This should ideally send a request to the backend to update the user profile
-              // For now, we just close the modal since currentUser is derived from AuthContext
+              setCurrentUser(updatedUser);
               setShowProfileModal(false);
             }}
             onClose={() => setShowProfileModal(false)}
@@ -401,34 +394,36 @@ export default function App() {
                     className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 z-[100] overflow-hidden"
                   >
                     <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                      <h4 className="font-bold text-brand-dark text-sm">Notificações</h4>
+                      <h4 className="font-bold text-brand-dark text-sm">Minhas Notificações</h4>
                       <button onClick={() => setIsMuted(!isMuted)} className="text-slate-400 hover:text-brand-dark cursor-pointer">
                         {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                       </button>
                     </div>
                     <div className="p-4 space-y-3">
-                      <div className="flex items-start gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer">
-                        <div className="w-8 h-8 rounded-full bg-brand-accent/20 flex items-center justify-center shrink-0">
-                          <MessageSquare size={14} className="text-brand-dark" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-brand-dark">Novo chamado: João Pereira</p>
-                          <p className="text-[10px] text-slate-500">Há 2 minutos</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                          <Users size={14} className="text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-brand-dark">Bruno Costa entrou online</p>
-                          <p className="text-[10px] text-slate-500">Há 15 minutos</p>
-                        </div>
-                      </div>
+                      <NotificationToggle 
+                        label="Novo chamado" 
+                        value={currentUser.notifications?.newCall ?? true} 
+                        onToggle={(val) => handleUpdateCurrentUserNotification('newCall', val)} 
+                      />
+                      <NotificationToggle 
+                        label="Chamado encerrado" 
+                        value={currentUser.notifications?.closedCall ?? true} 
+                        onToggle={(val) => handleUpdateCurrentUserNotification('closedCall', val)} 
+                      />
+                      <NotificationToggle 
+                        label="Atribuído à você" 
+                        value={currentUser.notifications?.assignedToMe ?? true} 
+                        onToggle={(val) => handleUpdateCurrentUserNotification('assignedToMe', val)} 
+                      />
+                      <NotificationToggle 
+                        label="Participações" 
+                        value={currentUser.notifications?.participations ?? true} 
+                        onToggle={(val) => handleUpdateCurrentUserNotification('participations', val)} 
+                      />
                     </div>
-                    <button className="w-full p-3 text-center text-xs font-bold text-brand-dark border-t border-slate-100 hover:bg-slate-50 cursor-pointer">
-                      Ver todas as notificações
-                    </button>
+                    <div className="p-4 border-t border-slate-100">
+                      <p className="text-[10px] text-slate-400 text-center">Somente você pode alterar suas preferências.</p>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -457,6 +452,129 @@ export default function App() {
 }
 
 // --- Sub-components ---
+
+const NotificationToggle = ({ label, value, onToggle }: { label: string, value: boolean, onToggle: (val: boolean) => void }) => (
+  <div className="flex items-center justify-between gap-4 py-1">
+    <span className="text-[10px] text-slate-500 font-medium">{label}</span>
+    <button 
+      onClick={() => onToggle(!value)}
+      className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${value ? 'bg-brand-accent' : 'bg-slate-200'}`}
+    >
+      <motion.div 
+        animate={{ x: value ? 16 : 2 }}
+        className="absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm"
+      />
+    </button>
+  </div>
+);
+
+function LoginView({ onLoginSuccess }: { onLoginSuccess: (user: UserType) => void }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        onLoginSuccess(data.user);
+      } else {
+        setError(data.message || 'Credenciais inválidas.');
+      }
+    } catch (err) {
+      setError('Erro ao conectar com o servidor.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen dark-gradient flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white w-full max-w-md rounded-[2.5rem] p-10 shadow-2xl"
+      >
+        <div className="text-center mb-10">
+          <div className="w-20 h-20 bg-brand-dark rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg rotate-3">
+            <MessageSquare size={40} className="text-brand-accent" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tighter text-brand-dark">
+            HUB<span className="text-brand-accent">SUPPORT</span>
+          </h1>
+          <p className="text-brand-gray mt-2 font-medium">Bem-vindo de volta!</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-xs font-bold uppercase text-brand-gray mb-2 ml-1">Usuário</label>
+            <div className="relative">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Seu usuário" 
+                className="w-full bg-slate-100 border-none rounded-2xl pl-12 pr-4 py-4 text-sm focus:ring-2 focus:ring-brand-dark transition-all"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase text-brand-gray mb-2 ml-1">Senha</label>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Sua senha" 
+                className="w-full bg-slate-100 border-none rounded-2xl pl-12 pr-4 py-4 text-sm focus:ring-2 focus:ring-brand-dark transition-all"
+                required
+              />
+            </div>
+          </div>
+
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex items-center gap-2 text-red-500 text-xs font-bold bg-red-50 p-4 rounded-xl border border-red-100"
+            >
+              <AlertCircle size={16} />
+              {error}
+            </motion.div>
+          )}
+
+          <button 
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-brand-dark text-white py-4 rounded-2xl font-bold text-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-brand-dark/20 disabled:opacity-70 disabled:hover:scale-100 cursor-pointer"
+          >
+            {isLoading ? 'Entrando...' : 'Entrar no Sistema'}
+          </button>
+        </form>
+
+        <p className="text-center text-slate-400 text-xs mt-10">
+          Problemas com o acesso? <a href="#" className="text-brand-dark font-bold hover:underline">Contate o suporte</a>
+        </p>
+      </motion.div>
+    </div>
+  );
+}
 
 function NavItem({ icon, label, active, onClick, collapsed }: { icon: any, label: string, active: boolean, onClick: () => void, collapsed: boolean }) {
   return (
@@ -578,6 +696,7 @@ function SupportView({
   
   const filteredConversations = conversations.filter((c: any) => c.status === chatSegment);
   const selectedConversation = conversations.find((c: any) => c.id === selectedConversationId);
+  const availableAgents = agents.filter((a: any) => a.active && a.name.toLowerCase().includes(mentionSearch.toLowerCase()));
 
   const handleSend = () => {
     if (!messageInput.trim() || !selectedConversationId) return;
@@ -604,6 +723,18 @@ function SupportView({
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (showMentionList && e.key === 'Enter') {
+      const firstAgent = availableAgents[0];
+      if (firstAgent) {
+        insertMention(firstAgent.name);
+        e.preventDefault();
+      }
+    } else if (e.key === 'Enter') {
+      handleSend();
+    }
+  };
+
   const insertMention = (agentName: string) => {
     const lastAtPos = messageInput.lastIndexOf('@');
     const newValue = messageInput.substring(0, lastAtPos) + '@' + agentName + ' ';
@@ -612,7 +743,6 @@ function SupportView({
   };
 
   const activeOrganizations = organizations.filter((o: any) => o.active || o.id === selectedConversation?.organizationId);
-  const availableAgents = agents.filter((a: any) => a.active && a.name.toLowerCase().includes(mentionSearch.toLowerCase()));
 
   const MessageStatusIcon = ({ status }: { status?: MessageStatus }) => {
     if (!status) return null;
@@ -822,6 +952,7 @@ function SupportView({
                   type="text" 
                   value={messageInput}
                   onChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
                   placeholder={isInternalMode ? "Escreva um comentário interno... (use @ para mencionar)" : "Digite sua mensagem..."}
                   className={`flex-1 border-none rounded-xl px-4 py-3 text-sm transition-all focus:ring-2 ${
                     isInternalMode 
@@ -1075,7 +1206,7 @@ function OrganizationsView({ organizations, setOrganizations, onToggleActive, on
   );
 }
 
-function AgentsView({ agents, setAgents, onToggleActive, onDelete, onUpdateNotifications }: any) {
+function AgentsView({ agents, setAgents, onToggleActive, onDelete }: any) {
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
@@ -1101,21 +1232,6 @@ function AgentsView({ agents, setAgents, onToggleActive, onDelete, onUpdateNotif
   const filteredAgents = agents.filter((agent: any) => 
     agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     agent.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const NotificationToggle = ({ agentId, label, value, onToggle }: { agentId: string, label: string, value: boolean, onToggle: (val: boolean) => void }) => (
-    <div className="flex items-center justify-between gap-4 py-1">
-      <span className="text-[10px] text-slate-500 font-medium">{label}</span>
-      <button 
-        onClick={() => onToggle(!value)}
-        className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${value ? 'bg-brand-accent' : 'bg-slate-200'}`}
-      >
-        <motion.div 
-          animate={{ x: value ? 16 : 2 }}
-          className="absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm"
-        />
-      </button>
-    </div>
   );
 
   return (
@@ -1195,7 +1311,6 @@ function AgentsView({ agents, setAgents, onToggleActive, onDelete, onUpdateNotif
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="p-4 text-xs font-bold uppercase text-brand-gray">Agente</th>
               <th className="p-4 text-xs font-bold uppercase text-brand-gray">E-mail</th>
-              <th className="p-4 text-xs font-bold uppercase text-brand-gray">Notificações</th>
               <th className="p-4 text-xs font-bold uppercase text-brand-gray">Status</th>
               <th className="p-4 text-xs font-bold uppercase text-brand-gray text-right">Ações</th>
             </tr>
@@ -1210,34 +1325,6 @@ function AgentsView({ agents, setAgents, onToggleActive, onDelete, onUpdateNotif
                   </div>
                 </td>
                 <td className="p-4 text-sm text-slate-500">{agent.email}</td>
-                <td className="p-4">
-                  <div className="w-48 space-y-1">
-                    <NotificationToggle 
-                      agentId={agent.id} 
-                      label="Novo chamado" 
-                      value={agent.notifications?.newCall ?? true} 
-                      onToggle={(val) => onUpdateNotifications(agent.id, 'newCall', val)} 
-                    />
-                    <NotificationToggle 
-                      agentId={agent.id} 
-                      label="Chamado encerrado" 
-                      value={agent.notifications?.closedCall ?? true} 
-                      onToggle={(val) => onUpdateNotifications(agent.id, 'closedCall', val)} 
-                    />
-                    <NotificationToggle 
-                      agentId={agent.id} 
-                      label="Atribuído à você" 
-                      value={agent.notifications?.assignedToMe ?? true} 
-                      onToggle={(val) => onUpdateNotifications(agent.id, 'assignedToMe', val)} 
-                    />
-                    <NotificationToggle 
-                      agentId={agent.id} 
-                      label="Participações" 
-                      value={agent.notifications?.participations ?? true} 
-                      onToggle={(val) => onUpdateNotifications(agent.id, 'participations', val)} 
-                    />
-                  </div>
-                </td>
                 <td className="p-4">
                   <div className="flex items-center gap-3">
                     <button 

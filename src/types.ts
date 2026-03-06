@@ -63,6 +63,12 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
+  notifications?: {
+    newCall: boolean;
+    closedCall: boolean;
+    assignedToMe: boolean;
+    participations: boolean;
+  };
 }
 
 export interface Product {
