@@ -63,8 +63,6 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
-  role: 'admin' | 'agent';
-  is_first_login?: boolean;
   notifications?: {
     newCall: boolean;
     closedCall: boolean;
