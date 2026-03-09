@@ -61,21 +61,10 @@ export interface Conversation {
 export interface User {
   id: string;
   name: string;
+  username: string;
   email: string;
   avatar: string;
-  notifications?: {
-    newCall: boolean;
-    closedCall: boolean;
-    assignedToMe: boolean;
-    participations: boolean;
-  };
-}
-
-export interface Product {
-  id: string;
-  name: string;
-  price: number;
-  image: string;
-  category: string;
-  description: string;
+  role: 'admin' | 'agent';
+  recovery_email?: string;
+  status: 'active' | 'inactive';
 }

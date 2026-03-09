@@ -3,34 +3,21 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import authRoutes from './server/auth.js';
+import userRoutes from './server/users.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   app.use(express.json());
 
-  // API routes
-  app.post("/api/login", (req, res) => {
-    const { username, password } = req.body;
-    
-    // Simple mock login
-    if (username === "jp.almeida" && password === "12345") {
-      res.json({ 
-        success: true, 
-        user: {
-          id: '1',
-          name: 'João',
-          email: 'joao@support.com',
-          avatar: 'https://i.pravatar.cc/150?u=joao_agent'
-        }
-      });
-    } else {
-      res.status(401).json({ success: false, message: "Usuário ou senha incorretos." });
-    }
-  });
+  // Real API routes
+  app.use('/api/auth', authRoutes);
+  app.use('/api/users', userRoutes);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
