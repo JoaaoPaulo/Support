@@ -1,24 +1,62 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Support — Sistema de Atendimento
 
-# Run and deploy your AI Studio app
+Painel web de atendimento ao cliente. Agentes acompanham e respondem **conversas**, a equipe de **agentes** e as **organizações** atendidas ficam centralizadas, e administradores gerenciam os acessos ao sistema.
 
-This contains everything you need to run your app locally.
+## Funcionalidades
 
-Test pull request testando
+- **Atendimento** — lista de conversas com mensagens, status e responsável, além de painel de notificações.
+- **Agentes** — visão da equipe de atendimento e da disponibilidade de cada agente.
+- **Organizações** — clientes/empresas vinculados às conversas.
+- **Gerenciamento de acessos (admin)** — criar, editar, ativar/desativar e excluir usuários, além de redefinir senhas.
+- **Login com JWT** — com troca de senha obrigatória no primeiro acesso quando o administrador redefine a senha de alguém, e edição do próprio perfil.
 
-push test
+> Os usuários e o login usam um banco SQLite real (`server/database.sqlite`). Conversas, agentes e organizações ainda usam dados de exemplo (`src/mockData.ts`).
 
-View your app in AI Studio: https://ai.studio/apps/e41a3b63-62d8-4e8d-a6ec-a69949e4e029
+## Tecnologias
 
-## Run Locally
+- **Frontend:** React 19 + Vite + Tailwind CSS + Motion + Lucide
+- **Backend:** Express (TypeScript, executado com `tsx`)
+- **Banco:** SQLite com `better-sqlite3`
+- **Autenticação:** `jsonwebtoken` + `bcryptjs`
 
-**Prerequisites:**  Node.js
+## Estrutura
 
+```
+server.ts          Servidor Express (API + frontend)
+server/
+├── db.ts          Conexão SQLite e criação da tabela de usuários
+├── auth.ts        Rotas /api/auth (login, primeiro acesso, /me)
+└── users.ts       Rotas /api/users (perfil e administração de usuários)
+src/
+├── views/         Telas: Support, Agents, Organizations, Admin
+├── components/    Login, notificações, perfil
+└── contexts/      AuthContext (sessão do usuário)
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Como rodar
+
+Pré-requisito: [Node.js](https://nodejs.org) 20 ou superior.
+
+```bash
+npm install
+npm run dev
+```
+
+Acesse `http://localhost:3000`.
+
+Na primeira execução é criado um usuário administrador padrão: **usuário `admin`, senha `1234`**. Troque essa senha antes de usar o sistema fora do ambiente local.
+
+### Variáveis de ambiente
+
+| Variável | Descrição |
+| --- | --- |
+| `PORT` | Porta do servidor (padrão `3000`) |
+| `JWT_SECRET` | Segredo para assinar os tokens. **Defina em produção** — sem ela é usado um valor padrão do código |
+| `NODE_ENV` | Use `production` para servir o build de `dist/` |
+
+### Produção
+
+```bash
+npm run build
+NODE_ENV=production npx tsx server.ts
+```
