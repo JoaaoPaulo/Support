@@ -5,8 +5,7 @@ Painel web de atendimento ao cliente. Agentes acompanham e respondem **conversas
 ## Funcionalidades
 
 - **Atendimento** — lista de conversas com mensagens, status e responsável, além de painel de notificações.
-- **Agentes** — visão da equipe de atendimento e da disponibilidade de cada agente.
-- **Organizações** — clientes/empresas vinculados às conversas.
+- **Agentes** e **Organizações** — telas reservadas para a equipe de atendimento e para as empresas atendidas (ainda em construção; por enquanto mostram só o título).
 - **Gerenciamento de acessos (admin)** — criar, editar, ativar/desativar e excluir usuários, além de redefinir senhas.
 - **Login com JWT** — com troca de senha obrigatória no primeiro acesso quando o administrador redefine a senha de alguém, e edição do próprio perfil.
 
